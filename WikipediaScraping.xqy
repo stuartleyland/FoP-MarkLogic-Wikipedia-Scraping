@@ -143,7 +143,13 @@ declare function CreateDocument($page as node())
 				return
 					<section>
 						<heading>{$heading/span/text()}</heading>
-						<content>{$heading/following-sibling::p[preceding-sibling::h2[1] = $heading]}</content>
+						<content>
+						{
+							for $paragraph in $heading/following-sibling::p[preceding-sibling::h2[1] = $heading]
+							return
+								fn:string($paragraph)
+						}
+						</content>
 					</section>
 			}
 			</sections>
