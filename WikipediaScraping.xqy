@@ -126,14 +126,22 @@ declare function CreateDocument($page as node())
 {
 	let $title := GetTitleFromPage($page)
 	let $content := $page/html/body/div[@id="content"]
-	let $document := 
+	let $headings := $content//h2[span[@class="mw-headline"]]
+	return
 		<article>
 			<title>{$title}</title>
-			<content>{$content}</content>
+			<summary></summary>
+			<sections>
+			{
+				for $heading in $headings
+				return
+					<section>
+						<heading>{$heading/span/text()}</heading>
+						<content>{$heading/following-sibling::p[preceding-sibling::h2[1] = $heading]}</content>
+					</section>
+			}
+			</sections>
 		</article>
-	let $_ := xdmp:log(fn:concat("Document: ", $document))
-	return
-		$document
 };
 
 declare function SaveImagesToDatabase($content)
@@ -153,13 +161,13 @@ declare function SaveImagesToDatabase($content)
 		)
 		
 	let $images := GetImagesFromPage($content)
+	let $_ := xdmp:log(fn:concat("Going to download ", count($images), " images"))
 	return
 		for $image in $images
-		let $_ := xdmp:log(fn:concat("Going to download the following image [", $image, "]"))
 		let $filename := functx:substring-after-last($image, "/")
 		let $filename := fn:concat("/Image/", $filename)
 		return
-			let $eval := xdmp:eval
+			xdmp:eval
 			(
 				$insertCommand,
 				(
@@ -171,9 +179,6 @@ declare function SaveImagesToDatabase($content)
 					<prevent-deadlocks>true</prevent-deadlocks>
 				</options>
 			)
-			let $_ := xdmp:log($eval)
-			return
-				()
 			
 };
 
