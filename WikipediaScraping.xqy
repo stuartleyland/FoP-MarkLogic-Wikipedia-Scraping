@@ -125,12 +125,12 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 declare function CreateDocument($page as node())
 {
 	let $title := GetTitleFromPage($page)
-	let $content := $page/html/body/div[@id="content"]
-	let $headings := $content//h2[span[@class="mw-headline"]]
+	let $content := $page/html/body/div[@id="content"]/div[@id="bodyContent"]/div[@id="mw-content-text"]
+	let $headings := $content/h2[span[@class="mw-headline"]]
 	return
 		<article>
 			<title>{$title}</title>
-			<summary></summary>
+			<summary>{$content/p[not(preceding-sibling::div[@id="toc"])]}</summary>
 			<sections>
 			{
 				for $heading in $headings
