@@ -42,12 +42,13 @@ declare function DownloadWikipediaPage($url as xs:string) as node()
 	{
 		let $_ := xdmp:sleep(1000)
 		let $_ := xdmp:log(fn:concat("About to download page from [", $url, "]")) 
-		let $responseAndPage := xdmp:http-get(
-		                                        $url,
-		                                        <options xmlns="xdmp:http-get">
-		                                          <format xmlns="xdmp:document-get">xml</format>
-		                                        </options>
-		                                     )
+		let $responseAndPage := xdmp:http-get
+			(
+				$url,
+				<options xmlns="xdmp:http-get">
+					<format xmlns="xdmp:document-get">xml</format>
+				</options>
+			)
 		let $response := $responseAndPage[1]
 		let $responseCode := $response/*:code/text()
 		let $_ := xdmp:log(fn:concat("Got response code [", $responseCode, "]")) 
@@ -87,20 +88,21 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 {
 	let $command := fn:concat
 		("
-			declare variable $titleExt external;
-			declare variable $contentExt external;
-			xdmp:document-insert($titleExt, $contentExt)
+			declare variable $filenameExt external;
+			declare variable $documentExt external;
+			xdmp:document-insert($filenameExt, $documentExt)
 		")
 	
-	let $title := GetTitleFromPage($page)
-	let $content := $page/html/body/div[@id="content"]
+	let $document := CreateDocument($page)
+	let $filename := GetTitleFromPage($page)
+	let $filename := fn:concat("/Article/", $filename, ".xml")
 
 	let $_ := xdmp:eval
 		(
 			$command, 
 			(
-				xs:QName("titleExt"), $title, 
-				xs:QName("contentExt"), $content
+				xs:QName("filenameExt"), $filename, 
+				xs:QName("documentExt"), $document
 			),
 			<options xmlns="xdmp:eval">
 				<isolation>different-transaction</isolation>
@@ -108,6 +110,7 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 			</options>
 		)
 	
+	let $content := $page/html/body/div[@id="content"]
 	let $_ := SaveImagesToDatabase($content)
 	
 	return
@@ -117,6 +120,20 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 				DownloadLinkedPages($links)
 		else
 			()
+};
+
+declare function CreateDocument($page as node())
+{
+	let $title := GetTitleFromPage($page)
+	let $content := $page/html/body/div[@id="content"]
+	let $document := 
+		<article>
+			<title>{$title}</title>
+			<content>{$content}</content>
+		</article>
+	let $_ := xdmp:log(fn:concat("Document: ", $document))
+	return
+		$document
 };
 
 declare function SaveImagesToDatabase($content)
@@ -140,7 +157,7 @@ declare function SaveImagesToDatabase($content)
 		for $image in $images
 		let $_ := xdmp:log(fn:concat("Going to download the following image [", $image, "]"))
 		let $filename := functx:substring-after-last($image, "/")
-		let $filename := fn:concat("/", $filename)
+		let $filename := fn:concat("/Image/", $filename)
 		return
 			let $eval := xdmp:eval
 			(
@@ -183,7 +200,6 @@ declare function GetImagesFromPage($content)
 declare function GetTitleFromPage($page as node())
 {
 	let $title := fn:replace($page/html/head/title/text(), " - Wikipedia, the free encyclopedia", "")
-	let $title := fn:concat("/", $title, ".xml")
 	return
 		$title
 };
