@@ -126,7 +126,7 @@ declare function CreateDocument($page as node())
 {
 	let $title := GetTitleFromPage($page)
 	let $content := $page/html/body/div[@id="content"]/div[@id="bodyContent"]/div[@id="mw-content-text"]
-	let $headings := $content/h2[span[@class="mw-headline"]]
+	let $headings := GetSectionHeadings($content)
 	return
 		<article>
 			<title>{$title}</title>
@@ -154,6 +154,21 @@ declare function CreateDocument($page as node())
 			}
 			</sections>
 		</article>
+};
+
+declare function GetSectionHeadings($content as node()) as item()*
+{
+	$content/h2
+		[
+			span
+				[
+					@class="mw-headline"
+					and not(./text() = "References") 
+					and not(./text() = "Further reading")
+					and not(./text() = "See also")
+					and not(./text() = "External links")
+				]
+		]
 };
 
 declare function SaveImagesToDatabase($content)
@@ -194,7 +209,7 @@ declare function SaveImagesToDatabase($content)
 			
 };
 
-declare function GetImagesFromPage($content)
+declare function GetImagesFromPage($content) as item()*
 {
 	let $images := fn:distinct-values
 		(
