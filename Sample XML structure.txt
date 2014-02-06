@@ -1,0 +1,16 @@
+<article>
+	<title>Train</title>
+	<summary>A train is a form of rail transport consisting of a series...</summary>
+	<sections>
+		<section>
+			<heading>Types</heading>
+			<content>There are various types of trains that...</content>
+			<sub-sections>
+				<section>
+					<heading>Terminology</heading>
+					<content>The railway terminology that is used to describe...</content>
+				</section>
+			</sub-sections>
+		</section>
+	</sections>
+</article>
