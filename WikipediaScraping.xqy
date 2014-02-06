@@ -111,7 +111,9 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 		)
 	
 	let $content := $page/html/body/div[@id="content"]
-	let $_ := SaveImagesToDatabase($content, $filename)
+	let $images := GetImagesFromPage($content)
+	let $_ := SaveImagesToDatabase($images)
+	let $_ := CreateTriplesForImages($images, $filename)
 	
 	return
 		if ($downloadLinkedPages = fn:true()) then
@@ -171,7 +173,7 @@ declare function GetSectionHeadings($content as node()) as item()*
 		]
 };
 
-declare function SaveImagesToDatabase($content as node(), $documentUri as xs:string)
+declare function SaveImagesToDatabase($images as item()*)
 {
 	let $insertCommand := fn:concat
 		(
@@ -186,27 +188,11 @@ declare function SaveImagesToDatabase($content as node(), $documentUri as xs:str
 				</options>
 				)'
 		)
-	
-	let $createTripleCommand := fn:concat
-		('
-			import module namespace sem = "http://marklogic.com/semantics" at "/MarkLogic/semantics.xqy";
-			declare variable $documentUriExt external;
-			declare variable $imageUriExt external;
-			sem:rdf-insert
-				(
-					sem:triple($documentUriExt, "has-image", $imageUriExt)
-				)
-		')
-		
-	let $images := GetImagesFromPage($content)
-	let $_ := xdmp:log(fn:concat("Going to download ", count($images), " images"))
 	return
 		for $image in $images
-		let $filename := functx:substring-after-last($image, "/")
-		let $filename := fn:concat("/Image/", $filename)
+		let $filename := GetImageFilename($image)
 		return
-			(
-				xdmp:eval
+			xdmp:eval
 				(
 					$insertCommand,
 					(
@@ -218,21 +204,14 @@ declare function SaveImagesToDatabase($content as node(), $documentUri as xs:str
 						<prevent-deadlocks>true</prevent-deadlocks>
 					</options>
 				)
-				,
-				xdmp:eval
-				(
-					$createTripleCommand,
-					(
-						xs:QName("documentUriExt"), $documentUri,
-						xs:QName("imageUriExt"), $filename
-					),
-					<options xmlns="xdmp:eval">
-						<isolation>different-transaction</isolation>
-						<prevent-deadlocks>true</prevent-deadlocks>
-					</options>
-				)
-			)
-			
+};
+
+declare function GetImageFilename($image as xs:string) as xs:string
+{
+	let $filename := functx:substring-after-last($image, "/")
+	let $filename := fn:concat("/Image/", $filename)
+	return
+		$filename
 };
 
 declare function GetImagesFromPage($content) as item()*
@@ -253,6 +232,46 @@ declare function GetImagesFromPage($content) as item()*
 	let $image := functx:substring-before-last($image, "/")
 	return
 		$image
+};
+
+declare function CreateTriplesForImages($images, $documentUri)
+{
+	
+	
+	(:let $createTripleCommand := fn:concat
+		('
+			import module namespace sem = "http://marklogic.com/semantics" at "/MarkLogic/semantics.xqy";
+			declare variable $documentUriExt external;
+			declare variable $imageUriExt external;
+			sem:triple($documentUriExt, "has-image", $imageUriExt)
+		')
+		
+			xdmp:eval
+				(
+					$createTripleCommand,
+					(
+						xs:QName("documentUriExt"), $documentUri,
+						xs:QName("imageUriExt"), $filename
+					),
+					<options xmlns="xdmp:eval">
+						<isolation>different-transaction</isolation>
+						<prevent-deadlocks>true</prevent-deadlocks>
+					</options>
+				):)
+				()
+};
+
+declare function CreateTripleObjectText($images)
+{
+	for $image in $images
+	let $imageUri := GetImageFilename($image)
+	return
+		fn:concat('sem:triple("', $documentUri, '", "has-image", "', $imageUri, '")')
+};
+
+declare function CreateTripleInsertCommand($tripleObjectCommands)
+{
+	
 };
 
 declare function GetTitleFromPage($page as node())
