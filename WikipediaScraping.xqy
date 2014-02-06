@@ -130,7 +130,13 @@ declare function CreateDocument($page as node())
 	return
 		<article>
 			<title>{$title}</title>
-			<summary>{$content/p[not(preceding-sibling::div[@id="toc"])]}</summary>
+			<summary>
+			{
+				for $paragraph in $content/p[not(preceding-sibling::div[@id="toc"])]
+				return
+					fn:string($paragraph)
+			}
+			</summary>
 			<sections>
 			{
 				for $heading in $headings
