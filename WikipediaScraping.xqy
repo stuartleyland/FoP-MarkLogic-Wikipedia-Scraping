@@ -254,7 +254,7 @@ declare function CreateImageTripleCommand() as xs:string
 						$imagesNode, 
 						<triple>
 						{
-							sem:triple($imageUriExt, "included on", $documentUriExt)
+							sem:triple($imageUriExt, "included in", $documentUriExt)
 						}
 						</triple>
 					)
