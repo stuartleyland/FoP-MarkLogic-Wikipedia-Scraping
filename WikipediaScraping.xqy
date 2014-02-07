@@ -122,7 +122,7 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 			()
 };
 
-declare function CreateDocument($page as node())
+declare function CreateDocument($page as node()) as element()
 {
 	let $title := GetTitleFromPage($page)
 	let $content := $page/html/body/div[@id="content"]/div[@id="bodyContent"]/div[@id="mw-content-text"]
@@ -153,6 +153,7 @@ declare function CreateDocument($page as node())
 					</section>
 			}
 			</sections>
+			<triples/>
 		</article>
 };
 
@@ -186,17 +187,6 @@ declare function SaveImagesToDatabase($content as node(), $documentUri as xs:str
 				</options>
 				)'
 		)
-	
-	let $createTripleCommand := fn:concat
-		('
-			import module namespace sem = "http://marklogic.com/semantics" at "/MarkLogic/semantics.xqy";
-			declare variable $documentUriExt external;
-			declare variable $imageUriExt external;
-			sem:rdf-insert
-				(
-					sem:triple($documentUriExt, "has-image", $imageUriExt)
-				)
-		')
 		
 	let $images := GetImagesFromPage($content)
 	let $_ := xdmp:log(fn:concat("Going to download ", count($images), " images"))
@@ -204,35 +194,20 @@ declare function SaveImagesToDatabase($content as node(), $documentUri as xs:str
 		for $image in $images
 		let $filename := functx:substring-after-last($image, "/")
 		let $filename := fn:concat("/Image/", $filename)
-		return
+		let $_ := xdmp:eval
 			(
-				xdmp:eval
+				$insertCommand,
 				(
-					$insertCommand,
-					(
-						xs:QName("urlExt"), $image,
-						xs:QName("filenameExt"), $filename
-					),
-					<options xmlns="xdmp:eval">
-						<isolation>different-transaction</isolation>
-						<prevent-deadlocks>true</prevent-deadlocks>
-					</options>
-				)
-				,
-				xdmp:eval
-				(
-					$createTripleCommand,
-					(
-						xs:QName("documentUriExt"), $documentUri,
-						xs:QName("imageUriExt"), $filename
-					),
-					<options xmlns="xdmp:eval">
-						<isolation>different-transaction</isolation>
-						<prevent-deadlocks>true</prevent-deadlocks>
-					</options>
-				)
+					xs:QName("urlExt"), $image,
+					xs:QName("filenameExt"), $filename
+				),
+				<options xmlns="xdmp:eval">
+					<isolation>different-transaction</isolation>
+					<prevent-deadlocks>true</prevent-deadlocks>
+				</options>
 			)
-			
+		return
+			()
 };
 
 declare function GetImagesFromPage($content) as item()*
