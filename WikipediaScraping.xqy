@@ -36,7 +36,7 @@ declare function CreateWikipediaLinkFromTitle($title) as xs:string
 	fn:concat($wikipediaBaseUrl, $title)
 };
 
-declare function DownloadWikipediaPage($url as xs:string) as node()
+declare function DownloadWikipediaPage($url as xs:string) as node()?
 {
 	try
 	{
