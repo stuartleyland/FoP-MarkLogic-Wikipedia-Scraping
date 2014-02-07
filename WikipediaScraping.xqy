@@ -1,6 +1,7 @@
 module namespace wiki = "http://ixxus.com/wikipediascraping";
 
 import module namespace functx = "http://www.functx.com" at "/MarkLogic/functx/functx-1.0-nodoc-2007-01.xqy";
+import module namespace sem = "http://marklogic.com/semantics" at "/MarkLogic/semantics.xqy";
 
 declare namespace wikimedia = "http://www.mediawiki.org/xml/export-0.8/";
 
@@ -153,7 +154,8 @@ declare function CreateDocument($page as node()) as element()
 					</section>
 			}
 			</sections>
-			<triples/>
+			<linkedPages/>
+			<images/>
 		</article>
 };
 
@@ -188,6 +190,25 @@ declare function SaveImagesToDatabase($content as node(), $documentUri as xs:str
 				)'
 		)
 		
+	let $addTripleCommand := fn:concat
+		('
+			declare variable $imageUriExt external;
+			declare variable $documentUriExt external;
+			
+			let $document := fn:doc($documentUriExt)
+			let $imagesNode := $document/article/images
+			return
+				xdmp:node-insert-child
+					(
+						$imagesNode, 
+						<triple>
+						{
+							sem:triple($imageUriExt, "included on", $documentUriExt)
+						}
+						</triple>
+					)
+		')
+
 	let $images := GetImagesFromPage($content)
 	let $_ := xdmp:log(fn:concat("Going to download ", count($images), " images"))
 	return
@@ -200,6 +221,18 @@ declare function SaveImagesToDatabase($content as node(), $documentUri as xs:str
 				(
 					xs:QName("urlExt"), $image,
 					xs:QName("filenameExt"), $filename
+				),
+				<options xmlns="xdmp:eval">
+					<isolation>different-transaction</isolation>
+					<prevent-deadlocks>true</prevent-deadlocks>
+				</options>
+			)
+		let $_ := xdmp:eval
+			(
+				$addTripleCommand,
+				(
+					xs:QName("imageUriExt"), $filename,
+					xs:QName("documentUriExt"), $documentUri
 				),
 				<options xmlns="xdmp:eval">
 					<isolation>different-transaction</isolation>
