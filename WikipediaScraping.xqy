@@ -15,11 +15,11 @@ declare function ImportPagesFromWikipediaExportFile($xmlFileLocation as xs:strin
 		for $title in $page//wikimedia:title/text()
 		let $title := fn:replace($title, " ", "_")
 		return
-			ImportWikipediaPage($title, fn:true())
+			ImportWikipediaPage($title, fn:true(), "")
 					
 };
 
-declare function ImportWikipediaPage($title as xs:string, $downloadLinkedPages as xs:boolean)
+declare function ImportWikipediaPage($title as xs:string, $downloadLinkedPages as xs:boolean, $startingDocumentUri as xs:string)
 {
 	let $url := CreateWikipediaLinkFromTitle($title)
 	let $page := DownloadWikipediaPage($url)
@@ -30,7 +30,7 @@ declare function ImportWikipediaPage($title as xs:string, $downloadLinkedPages a
 			if (PageIsCategoryPage($page)) then
 				DownloadLinkedPagesFromCategoryPage($page)
 			else
-				SavePageToDatabase($page, $downloadLinkedPages)
+				SavePageToDatabase($page, $downloadLinkedPages, $startingDocumentUri)
 };
 
 declare function CreateWikipediaLinkFromTitle($title) as xs:string
@@ -89,7 +89,7 @@ declare function DownloadLinkedPagesFromCategoryPage($page as node())
 	let $links := GetLinkedPages($linksDiv)
 	return
 		for $link in $links
-		return ImportWikipediaPage($link, fn:true())
+		return ImportWikipediaPage($link, fn:true(), "")
 			
 };
 
@@ -118,7 +118,7 @@ declare function GetLinkedPages($content as node()) as item()*
 			fn:replace($link, "/wiki/", "")
 };
 
-declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:boolean)
+declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:boolean, $startingDocumentUri as xs:string)
 {
 	let $command := fn:concat
 		("
@@ -139,12 +139,12 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 	
 	let $content := $page/html/body/div[@id="content"]
 	let $_ := SaveImagesToDatabase($content, $filename)
-	
+	let $_ := CreateTriplesForLinkedPage($filename, $startingDocumentUri)
 	return
 		if ($downloadLinkedPages = fn:true()) then
 			let $links := GetLinkedPages($content)
 			return
-				DownloadLinkedPages($links)
+				DownloadLinkedPages($links, $filename)
 		else
 			()
 };
@@ -203,7 +203,7 @@ declare function GetSectionHeadings($content as node()) as item()*
 declare function SaveImagesToDatabase($content as node(), $documentUri as xs:string)
 {
 	let $insertCommand := CreateInsertImageCommand()
-	let $addTripleCommand := CreateImageTripleCommand()
+	let $addTripleCommand := CreateTripleCommand()
 	let $images := GetImagesFromPage($content)
 	return
 		for $image in $images
@@ -216,7 +216,13 @@ declare function SaveImagesToDatabase($content as node(), $documentUri as xs:str
 		let $_ := util:RunCommandInDifferentTransaction
 			(
 				$addTripleCommand,
-				(xs:QName("imageUriExt"), $filename, xs:QName("documentUriExt"), $documentUri)
+				(
+					xs:QName("documentUriExt"), $documentUri, 
+					xs:QName("nodeToAddToExt"), "images",
+					xs:QName("subjectUriExt"), $filename, 
+					xs:QName("predicateExt"), "included in",
+					xs:QName("objectUriExt"), $documentUri
+				)
 			)
 		return
 			()
@@ -239,22 +245,25 @@ declare function CreateInsertImageCommand() as xs:string
 		')
 };
 
-declare function CreateImageTripleCommand() as xs:string
+declare function CreateTripleCommand() as xs:string
 {
 	fn:concat
 		('
-			declare variable $imageUriExt external;
 			declare variable $documentUriExt external;
+			declare variable $nodeToAddToExt external;
+			declare variable $subjectUriExt external;
+			declare variable $predicateExt external;
+			declare variable $objectUriExt external;
 			
 			let $document := fn:doc($documentUriExt)
-			let $imagesNode := $document/article/images
+			let $imagesNode := $document/article/*[local-name(.) = $nodeToAddToExt]
 			return
 				xdmp:node-insert-child
 					(
 						$imagesNode, 
 						<triple>
 						{
-							sem:triple($imageUriExt, "included in", $documentUriExt)
+							sem:triple($subjectUriExt, $predicateExt, $objectUriExt)
 						}
 						</triple>
 					)
@@ -289,10 +298,32 @@ declare function GetImageFilename($url as xs:string)
 		$filename
 };
 
-declare function DownloadLinkedPages($links)
+declare function CreateTriplesForLinkedPage($documentUri as xs:string, $startingDocumentUri as xs:string)
+{
+	if ($startingDocumentUri = "") then
+		xdmp:log(fn:concat("Starting document URI: ", $startingDocumentUri))
+	else
+		let $_ := xdmp:log(fn:concat("Starting document URI: [", $startingDocumentUri, "]"))
+		let $addTripleCommand := CreateTripleCommand()
+		let $_ := util:RunCommandInDifferentTransaction
+			(
+				$addTripleCommand,
+				(
+					xs:QName("documentUriExt"), $documentUri, 
+					xs:QName("nodeToAddToExt"), "linkedPages",
+					xs:QName("subjectUriExt"), $startingDocumentUri, 
+					xs:QName("predicateExt"), "links to",
+					xs:QName("objectUriExt"), $documentUri
+				)
+			)
+		return
+			()
+		
+};
+
+declare function DownloadLinkedPages($links as item()*, $startingDocumentUri as xs:string)
 {
 	for $link in $links
 	return
-		ImportWikipediaPage($link, fn:false())
-			
+		ImportWikipediaPage($link, fn:false(), $startingDocumentUri)
 };
