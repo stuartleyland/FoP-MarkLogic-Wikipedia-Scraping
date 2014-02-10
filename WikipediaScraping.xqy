@@ -167,16 +167,49 @@ declare function CreateDocument($page as node()) as element()
 			<sections>
 			{
 				for $heading in $headings
+				let $nextHeading := $heading/following-sibling::h2[1]
+				let $fullSection := $heading/following-sibling::* except ($nextHeading, $nextHeading/following-sibling::*)
+				let $sectionContent := $fullSection except ($fullSection[self::h3], $fullSection[self::h3]/following-sibling::*)
 				return
 					<section>
 						<heading>{$heading/span/text()}</heading>
-						<content>
+						<content>{$sectionContent}</content>
+						<sub-sections>
 						{
-							for $paragraph in $heading/following-sibling::p[preceding-sibling::h2[1] = $heading]
-							return
-								fn:string($paragraph)
+							for $subheading in $content//h3[span[@class='mw-headline']]
+							let $headingBeforeSubHeading := $subheading/preceding-sibling::h2[1]
+								return
+									if ($headingBeforeSubHeading = $heading) then
+									let $nextSubHeading := $subheading/following-sibling::h3[1]
+									let $fullSubSection := $subheading/following-sibling::* except ($nextSubHeading, $nextSubHeading/following-sibling::*)
+									let $subSectionContent := $fullSubSection except ($fullSubSection[self::h4], $fullSubSection[self::h4]/following-sibling::*)
+									return
+										<section>
+											<title>{$subheading/span/text()}</title>
+											<content>{$subSectionContent}</content>
+											<sub-sections>
+											{
+												for $subSubHeading in $content//h4[span[@class='mw-headline']]
+												let $subHeadingBeforeSubSubHeading := $subSubHeading/preceding-sibling::h3[1]
+												return
+													if ($subHeadingBeforeSubSubHeading = $subheading) then
+														let $nextSubSubHeading := $subSubHeading/following-sibling::h4[1]
+														let $fullSubSubSection := $subSubHeading/following-sibling::* except ($nextSubSubHeading, $nextSubSubHeading/following-sibling::*)
+														let $subSubSectionContent := $fullSubSubSection except ($fullSubSubSection[self::h5], $fullSubSubSection[self::h5]/following-sibling::*)
+														return
+															<section>
+															<title>{$subSubHeading/span/text()}</title>
+															<content>{$subSubSectionContent}</content>
+															</section>
+													else
+													()
+											}
+											</sub-sections>
+										</section>
+									else
+										()
 						}
-						</content>
+						</sub-sections>
 					</section>
 			}
 			</sections>
