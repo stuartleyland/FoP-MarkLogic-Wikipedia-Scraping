@@ -215,6 +215,7 @@ declare function CreateDocument($page as node()) as element()
 			</sections>
 			<linkedPages/>
 			<images/>
+			<captions/>
 		</article>
 };
 
@@ -235,28 +236,40 @@ declare function GetSectionHeadings($content as node()) as item()*
 
 declare function SaveImagesToDatabase($content as node(), $documentUri as xs:string)
 {
-	let $insertCommand := CreateInsertImageCommand()
-	let $addTripleCommand := CreateTripleCommand()
+	let $insertImageCommand := CreateInsertImageCommand()
+	let $createTripleCommand := CreateTripleCommand()
 	
 	let $imageDivs := $content//div[@class="thumbinner"]
 	return
 		for $imageDiv in $imageDivs
 		let $imageUrl := GetImageUrl($imageDiv)
-		let $filename := GetImageFilename($imageUrl)
+		let $imageFilename := GetImageFilename($imageUrl)
+		let $imageCaption := GetImageCaption($imageDiv)
 		let $_ := util:RunCommandInDifferentTransaction
 			(
-				$insertCommand, 
-				(xs:QName("urlExt"), $imageUrl, xs:QName("filenameExt"), $filename)
+				$insertImageCommand, 
+				(xs:QName("urlExt"), $imageUrl, xs:QName("filenameExt"), $imageFilename)
 			)
 		let $_ := util:RunCommandInDifferentTransaction
 			(
-				$addTripleCommand,
+				$createTripleCommand,
 				(
 					xs:QName("documentUriExt"), $documentUri, 
 					xs:QName("nodeToAddToExt"), "images",
-					xs:QName("subjectUriExt"), $filename, 
+					xs:QName("subjectUriExt"), $imageFilename, 
 					xs:QName("predicateExt"), "included in",
 					xs:QName("objectUriExt"), $documentUri
+				)
+			)
+		let $_ := util:RunCommandInDifferentTransaction
+			(
+				$createTripleCommand,
+				(
+					xs:QName("documentUriExt"), $documentUri, 
+					xs:QName("nodeToAddToExt"), "captions",
+					xs:QName("subjectUriExt"), $imageFilename, 
+					xs:QName("predicateExt"), "has caption",
+					xs:QName("objectUriExt"), $imageCaption
 				)
 			)
 		return
@@ -291,11 +304,11 @@ declare function CreateTripleCommand() as xs:string
 			declare variable $objectUriExt external;
 			
 			let $document := fn:doc($documentUriExt)
-			let $imagesNode := $document/article/*[local-name(.) = $nodeToAddToExt]
+			let $triplesNode := $document/article/*[local-name(.) = $nodeToAddToExt]
 			return
 				xdmp:node-insert-child
 					(
-						$imagesNode, 
+						$triplesNode, 
 						<triple>
 						{
 							sem:triple($subjectUriExt, $predicateExt, $objectUriExt)
@@ -322,6 +335,15 @@ declare function GetImageFilename($url as xs:string) as xs:string
 	let $filename := fn:concat("/Image/", $filename)
 	return
 		$filename
+};
+
+declare function GetImageCaption($imageDiv as node()) as xs:string
+{
+	let $captionElements := $imageDiv/div[@class="thumbcaption"]//text()[not(ancestor::div[@class="magnify"])]
+	let $caption := fn:string-join($captionElements, " ")
+	let $caption := fn:normalize-space($caption)
+	return
+		$caption
 };
 
 declare function CreateTriplesForLinkedPage($documentUri as xs:string, $startingDocumentUri as xs:string)
