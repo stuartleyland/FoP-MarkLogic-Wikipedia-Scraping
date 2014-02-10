@@ -237,14 +237,16 @@ declare function SaveImagesToDatabase($content as node(), $documentUri as xs:str
 {
 	let $insertCommand := CreateInsertImageCommand()
 	let $addTripleCommand := CreateTripleCommand()
-	let $images := GetImagesFromPage($content)
+	
+	let $imageDivs := $content//div[@class="thumbinner"]
 	return
-		for $image in $images
-		let $filename := GetImageFilename($image)
+		for $imageDiv in $imageDivs
+		let $imageUrl := GetImageUrl($imageDiv)
+		let $filename := GetImageFilename($imageUrl)
 		let $_ := util:RunCommandInDifferentTransaction
 			(
 				$insertCommand, 
-				(xs:QName("urlExt"), $image, xs:QName("filenameExt"), $filename)
+				(xs:QName("urlExt"), $imageUrl, xs:QName("filenameExt"), $filename)
 			)
 		let $_ := util:RunCommandInDifferentTransaction
 			(
@@ -303,27 +305,18 @@ declare function CreateTripleCommand() as xs:string
 		')
 };
 
-declare function GetImagesFromPage($content) as item()*
+declare function GetImageUrl($imageDiv as node()) as xs:string
 {
-	let $images := fn:distinct-values
-		(
-			$content//img
-			[@src
-				[
-					contains(., "/thumb/")
-				]
-			]/@src
-		)
+	let $imageTag := $imageDiv//img[@class="thumbimage"]
+	let $imageUrl := data($imageTag/@src)
+	let $imageUrl := fn:replace($imageUrl, "//", "http://")
+	let $imageUrl := fn:replace($imageUrl, "/thumb", "")
+	let $imageUrl := functx:substring-before-last($imageUrl, "/")
 	return
-	for $image in $images
-	let $image := fn:replace($image, "//", "http://")
-	let $image := fn:replace($image, "/thumb", "")
-	let $image := functx:substring-before-last($image, "/")
-	return
-		$image
+		$imageUrl
 };
 
-declare function GetImageFilename($url as xs:string)
+declare function GetImageFilename($url as xs:string) as xs:string
 {
 	let $filename := functx:substring-after-last($url, "/")
 	let $filename := fn:concat("/Image/", $filename)
