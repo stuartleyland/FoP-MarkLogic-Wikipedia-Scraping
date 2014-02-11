@@ -244,59 +244,75 @@ declare function GetSectionHeadings($content as node()) as item()*
 
 declare function SaveImagesToDatabase($content as node(), $documentUri as xs:string)
 {
-	let $insertImageCommand := CreateInsertImageCommand()
-	let $createTripleCommand := CreateTripleCommand()
-	
 	let $imageDivs := $content//div[@class="thumbinner"]
 	return
 		for $imageDiv in $imageDivs
-		let $imageUrl := GetImageUrl($imageDiv)
-		let $imageFilenameOnWikipedia := GetImageFilenameOnWikipedia($imageUrl)
-		let $imageFilenameForStorage := GetImageFilenameForStorage($imageFilenameOnWikipedia)
-		let $imageCaption := GetImageCaption($imageDiv)
-		let $imageDescription := GetImageDescription($imageFilenameOnWikipedia)
-		let $_ := util:RunCommandInDifferentTransaction
-			(
-				$insertImageCommand, 
-				(xs:QName("urlExt"), $imageUrl, xs:QName("filenameExt"), $imageFilenameForStorage)
-			)
-		let $_ := util:RunCommandInDifferentTransaction
-			(
-				$createTripleCommand,
-				(
-					xs:QName("documentUriExt"), $documentUri, 
-					xs:QName("nodeToAddToExt"), "images",
-					xs:QName("subjectUriExt"), $imageFilenameForStorage, 
-					xs:QName("predicateExt"), "included in",
-					xs:QName("objectUriExt"), $documentUri
-				)
-			)
-		let $_ := util:RunCommandInDifferentTransaction
-			(
-				$createTripleCommand,
-				(
-					xs:QName("documentUriExt"), $documentUri, 
-					xs:QName("nodeToAddToExt"), "captions",
-					xs:QName("subjectUriExt"), $imageFilenameForStorage, 
-					xs:QName("predicateExt"), "has caption",
-					xs:QName("objectUriExt"), $imageCaption
-				)
-			)
 		return
-			if (not($imageDescription = "")) then
-				util:RunCommandInDifferentTransaction
+			let $childDivs := $imageDiv/div[not (@thumbcaption)]
+			return
+				if (count($childDivs) = 1) then
+					HandleImageDiv($imageDiv, $documentUri)
+				else
+					for $childDiv in $childDivs
+					return
+						HandleImageDiv($childDiv, $documentUri)
+};
+
+declare function HandleImageDiv($imageDiv as node(), $documentUri as xs:string)
+{
+	let $_ := xdmp:log("Image div:")
+	let $_ := xdmp:log($imageDiv)
+
+	let $insertImageCommand := CreateInsertImageCommand()
+	let $createTripleCommand := CreateTripleCommand()
+	
+	let $imageUrl := GetImageUrl($imageDiv)
+	let $imageFilenameOnWikipedia := GetImageFilenameOnWikipedia($imageUrl)
+	let $imageFilenameForStorage := GetImageFilenameForStorage($imageFilenameOnWikipedia)
+	let $imageCaption := GetImageCaption($imageDiv)
+	let $imageDescription := GetImageDescription($imageFilenameOnWikipedia)
+	let $_ := util:RunCommandInDifferentTransaction
+		(
+			$insertImageCommand, 
+			(xs:QName("urlExt"), $imageUrl, xs:QName("filenameExt"), $imageFilenameForStorage)
+		)
+	let $_ := util:RunCommandInDifferentTransaction
+		(
+			$createTripleCommand,
+			(
+				xs:QName("documentUriExt"), $documentUri, 
+				xs:QName("nodeToAddToExt"), "images",
+				xs:QName("subjectUriExt"), $imageFilenameForStorage, 
+				xs:QName("predicateExt"), "included in",
+				xs:QName("objectUriExt"), $documentUri
+			)
+		)
+	let $_ := util:RunCommandInDifferentTransaction
+		(
+			$createTripleCommand,
+			(
+				xs:QName("documentUriExt"), $documentUri, 
+				xs:QName("nodeToAddToExt"), "captions",
+				xs:QName("subjectUriExt"), $imageFilenameForStorage, 
+				xs:QName("predicateExt"), "has caption",
+				xs:QName("objectUriExt"), $imageCaption
+			)
+		)
+	return
+		if (not($imageDescription = "")) then
+			util:RunCommandInDifferentTransaction
+			(
+				$createTripleCommand,
 				(
-					$createTripleCommand,
-					(
-						xs:QName("documentUriExt"), $documentUri, 
-						xs:QName("nodeToAddToExt"), "imageDescriptions",
-						xs:QName("subjectUriExt"), $imageFilenameForStorage, 
-						xs:QName("predicateExt"), "has description",
-						xs:QName("objectUriExt"), $imageDescription
-					)
+					xs:QName("documentUriExt"), $documentUri, 
+					xs:QName("nodeToAddToExt"), "imageDescriptions",
+					xs:QName("subjectUriExt"), $imageFilenameForStorage, 
+					xs:QName("predicateExt"), "has description",
+					xs:QName("objectUriExt"), $imageDescription
 				)
-			else
-				()
+			)
+		else
+			()
 };
 
 declare function CreateInsertImageCommand() as xs:string
@@ -343,7 +359,7 @@ declare function CreateTripleCommand() as xs:string
 
 declare function GetImageUrl($imageDiv as node()) as xs:string
 {
-	let $imageTag := $imageDiv//img[@class="thumbimage"]
+	let $imageTag := $imageDiv//a[@class="image"]/img
 	let $imageUrl := data($imageTag/@src)
 	let $imageUrl := fn:replace($imageUrl, "//", "http://")
 	let $imageUrl := fn:replace($imageUrl, "/thumb", "")
@@ -354,7 +370,14 @@ declare function GetImageUrl($imageDiv as node()) as xs:string
 
 declare function GetImageFilenameOnWikipedia($url as xs:string) as xs:string
 {
-	functx:substring-after-last($url, "/")
+	let $filename := functx:substring-after-last($url, "/")
+	return
+		if ($filename = "") then
+			let $_ := xdmp:log(fn:concat("Empty image filename for URL [", $url, "]"))
+			return
+				""
+		else
+			$filename
 };
 
 declare function GetImageFilenameForStorage($filenameOnWikipedia as xs:string) as xs:string
@@ -375,7 +398,7 @@ declare function GetImageDescription($imageFilenameOnWikipedia as xs:string) as 
 	let $detailsPage := DownloadWikipediaPage($detailsPageUrl)
 	return
 		if (fn:empty($detailsPage)) then
-			()
+			""
 		else
 			let $content := GetContentNode($detailsPage)
 			let $descriptionElements := GetImageDescriptionElements($content)
