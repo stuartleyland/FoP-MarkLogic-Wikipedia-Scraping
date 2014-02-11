@@ -152,7 +152,7 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 declare function CreateDocument($page as node()) as element()
 {
 	let $title := GetTitleFromPage($page)
-	let $content := $page/html/body/div[@id="content"]/div[@id="bodyContent"]/div[@id="mw-content-text"]
+	let $content := GetContentNode($page)
 	let $headings := GetSectionHeadings($content)
 	return
 		<article>
@@ -216,7 +216,13 @@ declare function CreateDocument($page as node()) as element()
 			<linkedPages/>
 			<images/>
 			<captions/>
+			<imageDescriptions/>
 		</article>
+};
+
+declare function GetContentNode($page as node()) as node()
+{
+	$page/html/body/div[@id="content"]/div[@id="bodyContent"]/div[@id="mw-content-text"]
 };
 
 declare function GetSectionHeadings($content as node()) as item()*
@@ -243,12 +249,14 @@ declare function SaveImagesToDatabase($content as node(), $documentUri as xs:str
 	return
 		for $imageDiv in $imageDivs
 		let $imageUrl := GetImageUrl($imageDiv)
-		let $imageFilename := GetImageFilename($imageUrl)
+		let $imageFilenameOnWikipedia := GetImageFilenameOnWikipedia($imageUrl)
+		let $imageFilenameForStorage := GetImageFilenameForStorage($imageFilenameOnWikipedia)
 		let $imageCaption := GetImageCaption($imageDiv)
+		let $imageDescription := GetImageDescription($imageFilenameOnWikipedia)
 		let $_ := util:RunCommandInDifferentTransaction
 			(
 				$insertImageCommand, 
-				(xs:QName("urlExt"), $imageUrl, xs:QName("filenameExt"), $imageFilename)
+				(xs:QName("urlExt"), $imageUrl, xs:QName("filenameExt"), $imageFilenameForStorage)
 			)
 		let $_ := util:RunCommandInDifferentTransaction
 			(
@@ -256,7 +264,7 @@ declare function SaveImagesToDatabase($content as node(), $documentUri as xs:str
 				(
 					xs:QName("documentUriExt"), $documentUri, 
 					xs:QName("nodeToAddToExt"), "images",
-					xs:QName("subjectUriExt"), $imageFilename, 
+					xs:QName("subjectUriExt"), $imageFilenameForStorage, 
 					xs:QName("predicateExt"), "included in",
 					xs:QName("objectUriExt"), $documentUri
 				)
@@ -267,9 +275,20 @@ declare function SaveImagesToDatabase($content as node(), $documentUri as xs:str
 				(
 					xs:QName("documentUriExt"), $documentUri, 
 					xs:QName("nodeToAddToExt"), "captions",
-					xs:QName("subjectUriExt"), $imageFilename, 
+					xs:QName("subjectUriExt"), $imageFilenameForStorage, 
 					xs:QName("predicateExt"), "has caption",
 					xs:QName("objectUriExt"), $imageCaption
+				)
+			)
+		let $_ := util:RunCommandInDifferentTransaction
+			(
+				$createTripleCommand,
+				(
+					xs:QName("documentUriExt"), $documentUri, 
+					xs:QName("nodeToAddToExt"), "imageDescriptions",
+					xs:QName("subjectUriExt"), $imageFilenameForStorage, 
+					xs:QName("predicateExt"), "has description",
+					xs:QName("objectUriExt"), $imageDescription
 				)
 			)
 		return
@@ -329,21 +348,37 @@ declare function GetImageUrl($imageDiv as node()) as xs:string
 		$imageUrl
 };
 
-declare function GetImageFilename($url as xs:string) as xs:string
+declare function GetImageFilenameOnWikipedia($url as xs:string) as xs:string
 {
-	let $filename := functx:substring-after-last($url, "/")
-	let $filename := fn:concat("/Image/", $filename)
-	return
-		$filename
+	functx:substring-after-last($url, "/")
+};
+
+declare function GetImageFilenameForStorage($filenameOnWikipedia as xs:string) as xs:string
+{
+	fn:concat("/Image/", $filenameOnWikipedia)
 };
 
 declare function GetImageCaption($imageDiv as node()) as xs:string
 {
 	let $captionElements := $imageDiv/div[@class="thumbcaption"]//text()[not(ancestor::div[@class="magnify"])]
-	let $caption := fn:string-join($captionElements, " ")
-	let $caption := fn:normalize-space($caption)
 	return
-		$caption
+		util:CombineStringsAndFixSpacing($captionElements)
+};
+
+declare function GetImageDescription($imageFilenameOnWikipedia as xs:string) as xs:string
+{
+	let $detailsPageUrl := fn:concat($wikipediaBaseUrl, "File:", $imageFilenameOnWikipedia)
+	let $detailsPage := DownloadWikipediaPage($detailsPageUrl)
+	return
+		if (fn:empty($detailsPage)) then
+			()
+		else
+			let $content := GetContentNode($detailsPage)
+			let $detailsTable := $content/div[@id="shared-image-desc"]/div[@class="hproduct"]/table
+			let $descriptionCell := $detailsTable/tr/td[@class="description"]
+			let $descriptionElements := $descriptionCell//text()
+			return
+				util:CombineStringsAndFixSpacing($descriptionElements)
 };
 
 declare function CreateTriplesForLinkedPage($documentUri as xs:string, $startingDocumentUri as xs:string)

@@ -12,3 +12,11 @@ declare function RunCommandInDifferentTransaction($command as xs:string, $variab
 			</options>
 		)
 };
+
+declare function CombineStringsAndFixSpacing($elements as item()*) as xs:string
+{
+	let $text := fn:string-join($elements, " ")
+	let $text := fn:normalize-space($text)
+	return
+		$text
+};
