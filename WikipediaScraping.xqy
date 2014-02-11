@@ -42,7 +42,7 @@ declare function DownloadWikipediaPage($url as xs:string) as node()?
 {
 	try
 	{
-		let $_ := xdmp:sleep(1000)
+		let $_ := xdmp:sleep(500)
 		let $_ := xdmp:log(fn:concat("About to download page from [", $url, "]")) 
 		let $responseAndPage := xdmp:http-get
 			(
@@ -282,19 +282,21 @@ declare function SaveImagesToDatabase($content as node(), $documentUri as xs:str
 					xs:QName("objectUriExt"), $imageCaption
 				)
 			)
-		let $_ := util:RunCommandInDifferentTransaction
-			(
-				$createTripleCommand,
-				(
-					xs:QName("documentUriExt"), $documentUri, 
-					xs:QName("nodeToAddToExt"), "imageDescriptions",
-					xs:QName("subjectUriExt"), $imageFilenameForStorage, 
-					xs:QName("predicateExt"), "has description",
-					xs:QName("objectUriExt"), $imageDescription
-				)
-			)
 		return
-			()
+			if (not($imageDescription = "")) then
+				util:RunCommandInDifferentTransaction
+				(
+					$createTripleCommand,
+					(
+						xs:QName("documentUriExt"), $documentUri, 
+						xs:QName("nodeToAddToExt"), "imageDescriptions",
+						xs:QName("subjectUriExt"), $imageFilenameForStorage, 
+						xs:QName("predicateExt"), "has description",
+						xs:QName("objectUriExt"), $imageDescription
+					)
+				)
+			else
+				()
 };
 
 declare function CreateInsertImageCommand() as xs:string
