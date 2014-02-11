@@ -53,12 +53,14 @@ declare function DownloadWikipediaPage($url as xs:string) as node()?
 			)
 		let $response := $responseAndPage[1]
 		let $responseCode := $response/*:code/text()
-		let $_ := xdmp:log(fn:concat("Got response code [", $responseCode, "]")) 
 		return
 			if ($responseCode = 200) then
 				$responseAndPage[2]
 			else
-				xdmp:log("Not downloading page")
+				(
+					xdmp:log(fn:concat("Got response code [", $responseCode, "]")),
+					xdmp:log("Not downloading page")
+				)
 	}
 	catch ($error)
 	{
@@ -172,7 +174,7 @@ declare function CreateDocument($page as node()) as element()
 				let $sectionContent := $fullSection except ($fullSection[self::h3], $fullSection[self::h3]/following-sibling::*)
 				return
 					<section>
-						<heading>{$heading/span/text()}</heading>
+						<title>{$heading/span/text()}</title>
 						<content>{$sectionContent}</content>
 						<sub-sections>
 						{
@@ -374,17 +376,29 @@ declare function GetImageDescription($imageFilenameOnWikipedia as xs:string) as 
 			()
 		else
 			let $content := GetContentNode($detailsPage)
-			let $detailsTable := $content/div[@id="shared-image-desc"]/div[@class="hproduct"]/table
-			let $descriptionCell := $detailsTable/tr/td[@class="description"]
-			let $descriptionElements := $descriptionCell//text()
+			let $descriptionElements := GetImageDescriptionElements($content)
 			return
 				util:CombineStringsAndFixSpacing($descriptionElements)
+};
+
+declare function GetImageDescriptionElements($content as node()) as item()*
+{
+	let $detailsTable := $content/div[@id="shared-image-desc"]/div[@class="hproduct"]/table
+	return
+		(: This is for a standard image hosted on Wikipedia without any notices/comments 
+		   Example: http://en.wikipedia.org/wiki/File:BNSF_5350_20040808_Prairie_du_Chien_WI.jpg :)
+		if (fn:exists($detailsTable)) then
+			$detailsTable/tr/td[@class="description"]//text()
+		else
+			(: This is for an image hosted on Wikipedia that does have notices/comments
+			   Exmaple: http://en.wikipedia.org/wiki/File:Passengers_in_Amtrak_lounge_car_of_San_Joaquin_%28train%29_2014.jpg :)
+			$content//tr[th[. = "Description"]]/td//text()
 };
 
 declare function CreateTriplesForLinkedPage($documentUri as xs:string, $startingDocumentUri as xs:string)
 {
 	if ($startingDocumentUri = "") then
-		xdmp:log(fn:concat("Starting document URI: ", $startingDocumentUri))
+		()
 	else
 		let $_ := xdmp:log(fn:concat("Starting document URI: [", $startingDocumentUri, "]"))
 		let $addTripleCommand := CreateTripleCommand()
