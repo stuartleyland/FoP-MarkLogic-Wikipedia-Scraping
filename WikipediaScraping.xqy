@@ -140,7 +140,7 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 		)
 	
 	let $content := $page/html/body/div[@id="content"]
-	let $imageDivs := $content//div[@class="thumbinner"]
+	let $imageDivs := $content//div[@class="thumbinner"][not(descendant::div[@class="PopUpMediaTransform"])] 
 	let $_ := SaveImagesToDatabase($imageDivs, $filename)
 	let $_ := CreateTriplesForLinkedPage($filename, $startingDocumentUri)
 	return
@@ -303,7 +303,8 @@ declare function SaveImagesToDatabase($imageDivs as item()*, $documentUri as xs:
 {
 	for $imageDiv in $imageDivs
 	return
-		let $childDivs := $imageDiv/div[not (@thumbcaption)]
+		(:let $childDivs := $imageDiv/div[not (@thumbcaption)]:)
+		let $childDivs := $imageDiv/div[not (@thumbcaption)][descendant::div[@class="thumbcaption"]][descendant::div[@class="thumbimage"]]
 		let $numberOfChildDivs := count($childDivs)
 		return
 			if ($numberOfChildDivs = 0) then
@@ -313,8 +314,11 @@ declare function SaveImagesToDatabase($imageDivs as item()*, $documentUri as xs:
 					HandleImageDiv($imageDiv, $documentUri)
 				else
 					for $childDiv in $childDivs
+					let $_ := xdmp:log("Child div:")
+					let $_ := xdmp:log($childDiv)
+					let $_ := xdmp:log("Done child div")
 					return
-						SaveImagesToDatabase($childDiv, $documentUri)
+						SaveImagesToDatabase(<div>{$childDiv}</div>, $documentUri)
 };
 
 declare function HandleImageDiv($imageDiv as node(), $documentUri as xs:string)
