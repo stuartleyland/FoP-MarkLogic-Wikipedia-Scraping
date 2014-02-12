@@ -42,13 +42,35 @@ declare function DownloadWikipediaPage($url as xs:string) as node()?
 {
 	try
 	{
+		DownloadPageWithEncoding($url, "utf-8")
+	}
+	catch ($error)
+	{
+		try
+		{
+			let $_ := xdmp:log("Had an error downloading the page, will try with different encoding")
+			return
+				DownloadPageWithEncoding($url, "iso-8859-1")
+		}
+		catch ($error)
+		{
+			xdmp:log($error)
+		}
+	}
+};
+
+declare function DownloadPageWithEncoding($url as xs:string, $encoding as xs:string) as node()?
+{
+	try
+	{
 		let $_ := xdmp:sleep(500)
-		let $_ := xdmp:log(fn:concat("About to download page from [", $url, "]")) 
+		let $_ := xdmp:log(fn:concat("About to download page from [", $url, "] using encoding [", $encoding, "]")) 
 		let $responseAndPage := xdmp:http-get
 			(
 				$url,
 				<options xmlns="xdmp:http-get">
 					<format xmlns="xdmp:document-get">xml</format>
+					<encoding xmlns="xdmp:document-get">{$encoding}</encoding>
 				</options>
 			)
 		let $response := $responseAndPage[1]
@@ -64,9 +86,10 @@ declare function DownloadWikipediaPage($url as xs:string) as node()?
 	}
 	catch ($error)
 	{
-		xdmp:log($error)
+		xdmp:rethrow()
 	}
 };
+
 
 declare function PageIsCategoryPage($page as node()) as xs:boolean
 {
