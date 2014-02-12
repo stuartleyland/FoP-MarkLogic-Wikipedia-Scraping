@@ -140,7 +140,8 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 		)
 	
 	let $content := $page/html/body/div[@id="content"]
-	let $_ := SaveImagesToDatabase($content, $filename)
+	let $imageDivs := $content//div[@class="thumbinner"]
+	let $_ := SaveImagesToDatabase($imageDivs, $filename)
 	let $_ := CreateTriplesForLinkedPage($filename, $startingDocumentUri)
 	return
 		if ($downloadLinkedPages = fn:true()) then
@@ -242,27 +243,26 @@ declare function GetSectionHeadings($content as node()) as item()*
 		]
 };
 
-declare function SaveImagesToDatabase($content as node(), $documentUri as xs:string)
+declare function SaveImagesToDatabase($imageDivs as item()*, $documentUri as xs:string)
 {
-	let $imageDivs := $content//div[@class="thumbinner"]
+	for $imageDiv in $imageDivs
 	return
-		for $imageDiv in $imageDivs
+		let $childDivs := $imageDiv/div[not (@thumbcaption)]
+		let $numberOfChildDivs := count($childDivs)
 		return
-			let $childDivs := $imageDiv/div[not (@thumbcaption)]
-			return
-				if (count($childDivs) = 1) then
+			if ($numberOfChildDivs = 0) then
+				()
+			else
+				if ($numberOfChildDivs = 1) then
 					HandleImageDiv($imageDiv, $documentUri)
 				else
 					for $childDiv in $childDivs
 					return
-						HandleImageDiv($childDiv, $documentUri)
+						SaveImagesToDatabase($childDiv, $documentUri)
 };
 
 declare function HandleImageDiv($imageDiv as node(), $documentUri as xs:string)
 {
-	let $_ := xdmp:log("Image div:")
-	let $_ := xdmp:log($imageDiv)
-
 	let $insertImageCommand := CreateInsertImageCommand()
 	let $createTripleCommand := CreateTripleCommand()
 	
