@@ -159,7 +159,7 @@ declare function CreateDocument($page as node()) as element()
 	let $headings := GetSectionHeadings($content)
 	return
 		<article>
-			<h1>{$title}</h1>
+			<title>{$title}</title>
 			<summary>
 			{
 				for $paragraph in $content/p[not(preceding-sibling::div[@id="toc"])]
@@ -167,6 +167,7 @@ declare function CreateDocument($page as node()) as element()
 					fn:string($paragraph)
 			}
 			</summary>
+			<sections>
 			{
 				for $heading in $headings
 				let $nextHeading := $heading/following-sibling::h2[1]
@@ -174,11 +175,14 @@ declare function CreateDocument($page as node()) as element()
 				let $sectionContent := $fullSection except ($fullSection[self::h3], $fullSection[self::h3]/following-sibling::*)
 				return
 				 <section>
-				 	<h2>{$heading/span/text()}</h2>
-					{$sectionContent}
-					{LoopInSubSection(3, $content, $heading)}
+				 	<title>{$heading/span/text()}</title>
+					<content>{$sectionContent}</content>
+					<sub-sections>
+					    {LoopInSubSection(3, $content, $heading)}
+					</sub-sections>
 				 </section>
 			}
+			</sections>
 			<linkedPages/>
 			<images/>
 			<captions/>
@@ -221,11 +225,13 @@ declare function LoopInSubSection($level, $content, $heading)
 			let $subSectionContent := $fullSubSection except ($fullSubSection[self::*[local-name(.)=fn:concat("h",$nextLevel)]], $fullSubSection[self::*[local-name(.)=fn:concat("h",$nextLevel)]]/following-sibling::*)
 			return
 				<section>
-				{element {fn:concat("h",$level)} {$localHeading/span/text()}}
-				{$subSectionContent}
+				<title>{$localHeading/span/text()}</title>
+				<content>{$subSectionContent}</content>
+				<sub-sections>
 				{
 					LoopInSubSection($nextLevel, $content, $localHeading)
 				}
+				</sub-sections>
 				</section>
 			else ( )
 };
