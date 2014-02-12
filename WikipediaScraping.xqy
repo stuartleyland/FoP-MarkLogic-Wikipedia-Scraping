@@ -129,7 +129,7 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 			xdmp:document-insert($filenameExt, $documentExt)
 		")
 	
-	let $document := CreateDocument($page)
+	let $document := CreateDocumentRecursively($page)
 	let $filename := GetTitleFromPage($page)
 	let $filename := fn:concat("/Article/", $filename, ".xml")
 
@@ -449,3 +449,145 @@ declare function DownloadLinkedPages($links as item()*, $startingDocumentUri as 
 	return
 		ImportWikipediaPage($link, fn:false(), $startingDocumentUri)
 };
+
+
+declare function CreateDocumentRecursively($page as node()) as element()
+{
+
+    let $title := GetTitleFromPage($page)
+	let $content := $page/html/body/div[@id="content"]/div[@id="bodyContent"]/div[@id="mw-content-text"]
+	let $headings := GetSectionHeadings($content)
+
+	return
+		<article>
+			<title>{$title}</title>
+			<summary>
+			{
+				for $paragraph in $content/p[not(preceding-sibling::div[@id="toc"])]
+				return
+					fn:string($paragraph)
+			}
+			</summary>
+			<sections>
+			{
+				for $heading in $headings
+				let $nextHeading := $heading/following-sibling::h2[1]
+				let $fullSection := $heading/following-sibling::* except ($nextHeading, $nextHeading/following-sibling::*)
+				let $sectionContent := $fullSection except ($fullSection[self::h3], $fullSection[self::h3]/following-sibling::*)
+				return
+				 <section>
+				 	<title>{$heading/span/text()}</title>
+					<content>{$sectionContent}</content>
+					<sub-sections>
+					    {loop_in_subsection(3, $content, $heading)}
+					</sub-sections>
+				 </section>
+			}
+			</sections>
+			<linkedPages/>
+			<images/>
+			<captions/>
+		</article>
+};
+
+
+
+ declare function loop_in_subsection($level, $content, $heading)
+ {
+    let $precedingLevel := $level - 1
+	let $nextLevel := $level + 1
+    let $contentHeadings := $content//*[local-name(.)=fn:concat("h",$level)][span[@class='mw-headline']]
+	return
+		for $localHeading in $contentHeadings
+		let $headingBeforeSubHeading := $localHeading/preceding-sibling::*[local-name(.)=fn:concat("h",$precedingLevel)][1]
+		return 
+		 if ($headingBeforeSubHeading = $heading) then
+			let $nextSubHeading := $localHeading/following-sibling::*[local-name(.)=fn:concat("h",$level)][1]
+			let $fullSubSection := $localHeading/following-sibling::* except ($nextSubHeading, $nextSubHeading/following-sibling::*)
+			let $subSectionContent := $fullSubSection except ($fullSubSection[self::*[local-name(.)=fn:concat("h",$nextLevel)]], $fullSubSection[self::*[local-name(.)=fn:concat("h",$nextLevel)]]/following-sibling::*)
+			return
+				<sub-section>
+					<title>{$localHeading/span/text()}</title>
+					<content>{$subSectionContent}</content>
+					<sub-sections>
+						{loop_in_subsection($nextLevel, $content, $localHeading)}
+					</sub-sections>
+				</sub-section>
+		 else ( )
+ };
+ 
+ 
+ declare function children_loop_in_section_content ($node)
+{
+  for $L as node() in $node/node()
+  return
+      loop_in_section_content($L)
+};
+ 
+ 
+declare function loop_in_section_content ($node as node())
+{
+typeswitch ($node)
+	   
+   case element(sub)
+     return
+       if ($node/node())
+       then
+         <sub>{children_loop_in_section_content($node)}</sub>
+       else ( )
+ 
+   case element(sup)
+     return
+       if ($node/node())
+       then
+         <sup>{children_loop_in_section_content($node)}</sup>
+       else ( )
+ 
+   case element(i)
+     return
+       if ($node/node())
+       then
+         <i>{children_loop_in_section_content($node)}</i>
+       else ( )
+     
+   case element(b)
+     return
+       if ($node/node())
+       then
+         <b>{children_loop_in_section_content($node)}</b>
+       else ( )
+	
+   case $x as element (p)
+	 return
+	   if ($node/node())
+       then
+         <p>{$x/text()}</p>
+       else ( )	
+	   
+   case $x as element (span)
+	 return
+	   if ($node/node())
+       then
+		 if(data($x/@class) = "mw-headline")
+		 then
+		   <heading>{$x/text()}</heading>
+		 else ( )
+       else ( )
+	   
+   case $x as element (div)
+	 return
+	   if ($node/node())
+	   then
+		<div>
+		{$x/text()}
+		{children_loop_in_section_content($node)}
+		</div>
+       else ( )
+ 
+   default
+     return
+       children_loop_in_section_content($node)
+};
+
+
+
