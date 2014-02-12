@@ -129,7 +129,7 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 			xdmp:document-insert($filenameExt, $documentExt)
 		")
 	
-	let $document := CreateDocument($page)
+	let $document := CreateDocumentRecursively($page)
 	let $filename := GetTitleFromPage($page)
 	let $filename := fn:concat("/Article/", $filename, ".xml")
 
@@ -453,7 +453,7 @@ declare function CreateDocumentRecursively($page as node()) as element()
 				let $sectionContent := $fullSection except ($fullSection[self::h3], $fullSection[self::h3]/following-sibling::*)
 				return
 				 <section>
-				 	<heading>{$heading/span/text()}</heading>
+				 	<title>{$heading/span/text()}</title>
 					<content>{$sectionContent}</content>
 					<sub-sections>
 					    {loop_in_subsection(3, $content, $heading)}
