@@ -304,19 +304,19 @@ declare function SaveImagesToDatabase($imageDivs as item()*, $documentUri as xs:
 	for $imageDiv in $imageDivs
 	return
 		(:let $childDivs := $imageDiv/div[not (@thumbcaption)]:)
-		let $childDivs := $imageDiv/div[not (@thumbcaption)][descendant::div[@class="thumbcaption"]][descendant::div[@class="thumbimage"]]
+		let $childDivs := $imageDiv/div[descendant::div[@class="thumbcaption"]]
 		let $numberOfChildDivs := count($childDivs)
 		return
 			if ($numberOfChildDivs = 0) then
-				()
+				HandleImageDiv($imageDiv, $documentUri)
 			else
 				if ($numberOfChildDivs = 1) then
 					HandleImageDiv($imageDiv, $documentUri)
 				else
 					for $childDiv in $childDivs
-					let $_ := xdmp:log("Child div:")
+					(:let $_ := xdmp:log("Child div:")
 					let $_ := xdmp:log($childDiv)
-					let $_ := xdmp:log("Done child div")
+					let $_ := xdmp:log("Done child div"):)
 					return
 						SaveImagesToDatabase(<div>{$childDiv}</div>, $documentUri)
 };
