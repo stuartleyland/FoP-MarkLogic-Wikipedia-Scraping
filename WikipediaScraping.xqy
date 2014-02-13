@@ -163,7 +163,7 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 		)
 	
 	let $content := $page/html/body/div[@id="content"]
-	let $imageDivs := $content//div[div[@class="thumbinner"][not(descendant::div[@class="PopUpMediaTransform"])]]
+	let $imageDivs := $content//div[@class="thumbinner"][not(descendant::div[@class="PopUpMediaTransform"])]
 	let $_ := SaveImagesToDatabase($imageDivs, $filename)
 	let $_ := CreateTriplesForLinkedPage($filename, $startingDocumentUri)
 	return
@@ -325,17 +325,11 @@ declare function LoopInSectionContent($node as node())
 declare function SaveImagesToDatabase($imageDivs as item()*, $documentUri as xs:string)
 {
 	for $imageDiv in $imageDivs
-	let $_ := xdmp:log("Image div:")
-	let $_ := xdmp:log($imageDiv)
 	return
-		if (fn:exists($imageDiv/div[@class="thumbcaption"])) then
-			let $_ := xdmp:log("Found thumbcaption div")
-			return
-				HandleImageDiv($imageDiv, $documentUri)
+		if ($imageDiv/div[@class="thumbcaption"]) then
+			HandleImageDiv($imageDiv, $documentUri)
 		else
 			let $childDivs := $imageDiv/child::*
-			let $_ := xdmp:log("Looking at child divs")
-			let $_ := xdmp:log($childDivs)
 			return
 				SaveImagesToDatabase($childDivs, $documentUri)
 };
@@ -449,16 +443,10 @@ declare function GetImageUrl($imageDiv as node()) as xs:string
 
 declare function GetImageTag($imageDiv as node()) as node()?
 {
-	if (fn:exists($imageDiv/div[@class="thumbinner"])) then
-		$imageDiv/div[@class="thumbinner"]/a[@class="image"]/img
+	if ($imageDiv/div[@class="thumbimage"]) then
+		$imageDiv/div[@class="thumbimage"]/a[@class="image"]/img
 	else
-		if (fn:exists($imageDiv/div[@class="thumbimage"])) then
-			$imageDiv/div[@class="thumbimage"]/a[@class="image"]/img
-		else
-			(
-				xdmp:log("Unable to get image tag for div:"),
-				xdmp:log($imageDiv)
-			)
+		$imageDiv/a[@class="image"]/img
 };
 
 declare function GetImageFilenameOnWikipedia($url as xs:string) as xs:string

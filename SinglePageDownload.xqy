@@ -5,3 +5,4 @@ import module namespace wiki = "http://ixxus.com/wikipediascraping" at "Wikipedi
 wiki:ImportWikipediaPage("American_Civil_war", fn:false(), "")
 (:wiki:ImportWikipediaPage("Typographic_ligature", fn:false(), ""):)
 (:wiki:ImportWikipediaPage("Movable_type", fn:false(), ""):)
+(:wiki:ImportWikipediaPage("Typesetting", fn:false(), ""):)
