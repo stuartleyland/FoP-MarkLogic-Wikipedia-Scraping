@@ -181,7 +181,7 @@ declare function CreateDocument($page as node()) as element()
 	let $content := GetContentNode($page)
 	let $headings := GetSectionHeadings($content)
 	return
-		<article>
+		<article id="{sem:uuid()}">
 			<title>{$title}</title>
 			<summary>
 			{
@@ -197,12 +197,12 @@ declare function CreateDocument($page as node()) as element()
 				let $fullSection := $heading/following-sibling::* except ($nextHeading, $nextHeading/following-sibling::*)
 				let $sectionContent := $fullSection except ($fullSection[self::h3], $fullSection[self::h3]/following-sibling::*)
 				return
-				 <section>
+				 <section id="{sem:uuid()}">
 				 	<title>{$heading/span/text()}</title>
 					<content>{$sectionContent}</content>
-					<sub-sections>
+					<sections>
 					    {LoopInSubSection(3, $content, $heading)}
-					</sub-sections>
+					</sections>
 				 </section>
 			}
 			</sections>
@@ -247,14 +247,14 @@ declare function LoopInSubSection($level, $content, $heading)
 			let $fullSubSection := $localHeading/following-sibling::* except ($nextSubHeading, $nextSubHeading/following-sibling::*)
 			let $subSectionContent := $fullSubSection except ($fullSubSection[self::*[local-name(.)=fn:concat("h",$nextLevel)]], $fullSubSection[self::*[local-name(.)=fn:concat("h",$nextLevel)]]/following-sibling::*)
 			return
-				<section>
+				<section id="{sem:uuid()}">
 				<title>{$localHeading/span/text()}</title>
 				<content>{$subSectionContent}</content>
-				<sub-sections>
+				<sections>
 				{
 					LoopInSubSection($nextLevel, $content, $localHeading)
 				}
-				</sub-sections>
+				</sections>
 				</section>
 			else ( )
 };
