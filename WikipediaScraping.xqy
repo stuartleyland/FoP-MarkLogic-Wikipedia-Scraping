@@ -163,7 +163,7 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 		)
 	
 	let $content := $page/html/body/div[@id="content"]
-	let $imageDivs := $content//div[@class="thumbinner"][not(descendant::div[@class="PopUpMediaTransform"])] 
+	let $imageDivs := $content//div[div[@class="thumbinner"][not(descendant::div[@class="PopUpMediaTransform"])]]
 	let $_ := SaveImagesToDatabase($imageDivs, $filename)
 	let $_ := CreateTriplesForLinkedPage($filename, $startingDocumentUri)
 	return
@@ -325,23 +325,19 @@ declare function LoopInSectionContent($node as node())
 declare function SaveImagesToDatabase($imageDivs as item()*, $documentUri as xs:string)
 {
 	for $imageDiv in $imageDivs
+	let $_ := xdmp:log("Image div:")
+	let $_ := xdmp:log($imageDiv)
 	return
-		(:let $childDivs := $imageDiv/div[not (@thumbcaption)]:)
-		let $childDivs := $imageDiv/div[descendant::div[@class="thumbcaption"]]
-		let $numberOfChildDivs := count($childDivs)
-		return
-			if ($numberOfChildDivs = 0) then
+		if (fn:exists($imageDiv/div[@class="thumbcaption"])) then
+			let $_ := xdmp:log("Found thumbcaption div")
+			return
 				HandleImageDiv($imageDiv, $documentUri)
-			else
-				if ($numberOfChildDivs = 1) then
-					HandleImageDiv($imageDiv, $documentUri)
-				else
-					for $childDiv in $childDivs
-					(:let $_ := xdmp:log("Child div:")
-					let $_ := xdmp:log($childDiv)
-					let $_ := xdmp:log("Done child div"):)
-					return
-						SaveImagesToDatabase(<div>{$childDiv}</div>, $documentUri)
+		else
+			let $childDivs := $imageDiv/child::*
+			let $_ := xdmp:log("Looking at child divs")
+			let $_ := xdmp:log($childDivs)
+			return
+				SaveImagesToDatabase($childDivs, $documentUri)
 };
 
 declare function HandleImageDiv($imageDiv as node(), $documentUri as xs:string)
@@ -442,13 +438,27 @@ declare function CreateTripleCommand() as xs:string
 
 declare function GetImageUrl($imageDiv as node()) as xs:string
 {
-	let $imageTag := $imageDiv//a[@class="image"]/img
+	let $imageTag := GetImageTag($imageDiv)
 	let $imageUrl := data($imageTag/@src)
 	let $imageUrl := fn:replace($imageUrl, "//", "http://")
 	let $imageUrl := fn:replace($imageUrl, "/thumb", "")
 	let $imageUrl := functx:substring-before-last($imageUrl, "/")
 	return
 		$imageUrl
+};
+
+declare function GetImageTag($imageDiv as node()) as node()?
+{
+	if (fn:exists($imageDiv/div[@class="thumbinner"])) then
+		$imageDiv/div[@class="thumbinner"]/a[@class="image"]/img
+	else
+		if (fn:exists($imageDiv/div[@class="thumbimage"])) then
+			$imageDiv/div[@class="thumbimage"]/a[@class="image"]/img
+		else
+			(
+				xdmp:log("Unable to get image tag for div:"),
+				xdmp:log($imageDiv)
+			)
 };
 
 declare function GetImageFilenameOnWikipedia($url as xs:string) as xs:string
