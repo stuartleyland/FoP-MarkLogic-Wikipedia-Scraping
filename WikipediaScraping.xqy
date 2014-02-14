@@ -189,10 +189,11 @@ declare function CreateDocument($page as node()) as element()
 								[not(self::div[@id="toc"])]
 								[not(div[fn:contains(data(@class),"thumb")])]
 								[not(self::div[fn:contains(data(@class),"dablink")])]
+								[not(self::table[fn:contains(data(@class), "infobox")])]
 								[not(data(@role))]
 
 				return
-					fn:string($paragraph)
+					$paragraph
 			}
 			</summary>
 			<sections>
