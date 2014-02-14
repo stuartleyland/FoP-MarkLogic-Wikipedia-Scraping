@@ -163,7 +163,7 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 		)
 	
 	let $content := $page/html/body/div[@id="content"]
-	let $imageDivs := $content//div[@class="thumbinner"][not(descendant::div[@class="PopUpMediaTransform"])]
+	let $imageDivs := $content//div[@class="thumbinner"][not(descendant::div[@class="PopUpMediaTransform"])][not(descendant::div[@class="mediaContainer"])]
 	let $_ := SaveImagesToDatabase($imageDivs, $filename)
 	let $_ := CreateTriplesForLinkedPage($filename, $startingDocumentUri)
 	return

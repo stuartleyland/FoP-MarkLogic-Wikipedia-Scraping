@@ -6,4 +6,4 @@ import module namespace wiki = "http://ixxus.com/wikipediascraping" at "Wikipedi
 (:wiki:ImportWikipediaPage("Typographic_ligature", fn:false(), ""):)
 (:wiki:ImportWikipediaPage("Movable_type", fn:false(), ""):)
 (:wiki:ImportWikipediaPage("Typesetting", fn:false(), ""):)
-wiki:ImportWikipediaPage("Typography", fn:false(), "")
+wiki:ImportWikipediaPage("German_language", fn:false(), "")
