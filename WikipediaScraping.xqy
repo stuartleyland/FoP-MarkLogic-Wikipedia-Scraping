@@ -187,9 +187,11 @@ declare function CreateDocument($page as node()) as element()
 			{
 				for $paragraph in $content/*	[not(preceding::div[@id="toc"])]
 								[not(self::div[@id="toc"])]
+								[not(self::div[fn:contains(data(@class), "toclimit")])]
 								[not(div[fn:contains(data(@class),"thumb")])]
 								[not(self::div[fn:contains(data(@class),"dablink")])]
 								[not(self::table[fn:contains(data(@class), "infobox")])]
+								[not(self::table[fn:contains(data(@class), "navbox")])]
 								[not(data(@role))]
 
 				return
