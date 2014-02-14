@@ -185,7 +185,12 @@ declare function CreateDocument($page as node()) as element()
 			<title>{$title}</title>
 			<summary>
 			{
-				for $paragraph in $content/p[not(preceding-sibling::div[@id="toc"])]
+				for $paragraph in $content/*	[not(preceding::div[@id="toc"])]
+								[not(self::div[@id="toc"])]
+								[not(div[fn:contains(data(@class),"thumb")])]
+								[not(self::div[fn:contains(data(@class),"dablink")])]
+								[not(data(@role))]
+
 				return
 					fn:string($paragraph)
 			}
