@@ -441,14 +441,13 @@ declare function GetImageUrl($imageDiv as node()) as xs:string
 	let $imageUrl := data($imageTag/@src)
 	let $imageUrl := fn:replace($imageUrl, "//", "http://")
 	return
-		if (fn:contains("/thumb/")) then
+		if (fn:contains($imageUrl, "/thumb/")) then
 			let $imageUrl := fn:replace($imageUrl, "/thumb", "")
 			let $imageUrl := functx:substring-before-last($imageUrl, "/")
 			return
 				$imageUrl
 		else
-			return
-				$imageUrl
+			$imageUrl
 };
 
 declare function GetImageTag($imageDiv as node()) as node()?

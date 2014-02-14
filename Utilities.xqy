@@ -18,8 +18,8 @@ declare function RunCommandInDifferentTransaction($command as xs:string, $variab
 		{
 			(
 				xdmp:log("Had an error re-running the command, will now fail."),
-				xdmp:log("Command:")
-				xdmp:log($command)
+				xdmp:log("Command:"),
+				xdmp:log($command),
 				xdmp:log($error)
 			)
 			
