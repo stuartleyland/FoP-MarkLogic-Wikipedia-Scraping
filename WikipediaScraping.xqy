@@ -454,9 +454,12 @@ declare function GetImageUrl($imageDiv as node()) as xs:string
 declare function GetImageTag($imageDiv as node()) as node()?
 {
 	if ($imageDiv/div[@class="thumbimage"]) then
-		$imageDiv/div[@class="thumbimage"]/a[@class="image"]/img
+		$imageDiv/div[@class="thumbimage"]/a/img
 	else
-		$imageDiv/a[@class="image"]/img
+		if ($imageDiv/a/img) then
+			$imageDiv/a/img
+		else
+			$imageDiv/div/a/img
 };
 
 declare function GetImageFilenameOnWikipedia($url as xs:string) as xs:string
