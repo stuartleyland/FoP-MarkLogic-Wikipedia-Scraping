@@ -183,6 +183,7 @@ declare function ExtractAndSavePersonData($page as node(), $filename as xs:strin
 	for $row in $contentNode/table[data(@id) = "persondata"]//tr
 		
 		let $pred := GetPredicateFromPersonDataRow($row)
+		let $pred := functx:words-to-camel-case($pred)
 		let $obj := GetObjectFromPersonDataRow($row)
 		return
 			if (not(fn:empty($obj)) and not($obj = ""))
