@@ -175,13 +175,16 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 			()
 };
 
-declare function CreateDocument($page as node()) as element()
+declare function CreateDocument($page) as element()
 {
-    let $title := GetTitleFromPage($page)
+	let $title := GetTitleFromPage($page)
 	let $content := GetContentNode($page)
 	let $headings := GetSectionHeadings($content)
 	return
-		<article id="{sem:uuid()}">
+		<article
+			xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+			xsi:noNamespaceSchemaLocation="FoP2.xsd"
+			id="{sem:uuid()}">
 			<title>{$title}</title>
 			<summary>
 			{
