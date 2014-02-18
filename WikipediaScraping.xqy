@@ -5,6 +5,7 @@ import module namespace sem = "http://marklogic.com/semantics" at "/MarkLogic/se
 import module namespace util = "http://ixxus.com/util" at "Utilities.xqy";
 
 declare namespace wikimedia = "http://www.mediawiki.org/xml/export-0.8/";
+declare namespace foaf = "http://xmlns.com/foaf/0.1/";
 
 declare variable $wikipediaBaseUrl as xs:string := "http://en.wikipedia.org/wiki/";
 
@@ -153,8 +154,8 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 		")
 	
 	let $document := CreateDocument($page)
-	let $filename := GetTitleFromPage($page)
-	let $filename := fn:concat("/Article/", $filename, ".xml")
+	let $originalTitle := GetTitleFromPage($page)
+	let $filename := fn:concat("/Article/", $originalTitle, ".xml")
 
 	let $_ := util:RunCommandInDifferentTransaction
 		(
@@ -165,6 +166,7 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 	let $content := $page/html/body/div[@id="content"]
 	let $imageDivs := $content//div[@class="thumbinner"][descendant::a/img][not(descendant::div[@class="PopUpMediaTransform"])][not(descendant::div[@class="mediaContainer"])]
 	let $_ := SaveImagesToDatabase($imageDivs, $filename)
+	let $_ := RetrieveAndSaveFlickrImages($originalTitle, $filename)
 	let $_ := CreateTriplesForLinkedPage($filename, $startingDocumentUri)
 	let $_ := ExtractAndSavePersonData($page, $filename)
 	return
@@ -447,6 +449,61 @@ declare function SaveAndLinkImage($imageUrl, $imageFilenameForStorage, $document
 			()
 };
 
+declare function RetrieveAndSaveFlickrImages($title, $documentUri)
+{
+	let $title := fn:replace($title, " ", "_")
+	let $dbpedia_prefix := "http://dbpedia.org/resource/"
+	let $dbpediaResourceURL := fn:concat($dbpedia_prefix, $title)
+	let $_ := xdmp:log(fn:concat("Finding Flickr Images for ", $dbpediaResourceURL))
+	let $photoSparQL := fn:concat("SELECT ?o WHERE { <", $dbpediaResourceURL, "> <http://dbpedia.org/property/hasPhotoCollection> ?o } ")
+	let $hasPhotoCollection := sem:sparql($photoSparQL)
+	let $hasPhotoCollectionURI := map:get($hasPhotoCollection[1], "o")
+	let $hasPhotoCollectionResource := xdmp:http-get($hasPhotoCollectionURI)
+	(: Initial Resource is a 403; find the new location :)
+	let $hasPhotoCollectionResource := 
+		try {
+			xdmp:http-get($hasPhotoCollectionResource/*:headers/*:location/text())
+		} catch ($exc)
+		{
+			<Root><errorMessage>{$exc}</errorMessage><code>404</code></Root>
+		}
+	let $resourceHttpType := $hasPhotoCollectionResource//*:code/text()
+	let $rdfResource := 
+		if ($resourceHttpType = "404")
+		then
+			<Error><format-string>DBpedia resource ({$hasPhotoCollectionURI}) does not exist</format-string></Error>
+		else
+			try {
+			xdmp:unquote($hasPhotoCollectionResource[2])/*:html/*:body/*:pre/text()
+			} catch ($exc)
+			{
+			<Error><xqueryMessage>{$exc}</xqueryMessage></Error>
+			}
+	let $rdfDescription :=
+		try {
+			xdmp:unquote($rdfResource)/rdf:RDF/rdf:Description
+		} catch ($exc)
+		{
+			()
+		}
+	let $_ := 	if (fn:empty($rdfDescription))
+			then xdmp:log(fn:concat("Empty RDF description for ", $title, ": ", xdmp:quote($rdfResource//*:format-string/text())))
+			else ()
+	for $desc in $rdfDescription
+	return 
+		for $dep in $desc/foaf:depiction
+			let $imageUrl := data($dep/@rdf:resource)
+			let $imageFilenameForStorage := fn:concat("/FlickrImage/", fn:replace(fn:replace($imageUrl, "://", "_"), "/", "_"))
+			let $imageCaption := "Flickr Caption"
+			let $imageDescription := "Flickr Desc"
+			(: #################### :)
+			(: ###### TODO ######## :)
+			(: #################### :)
+			(: Get a meaningful caption and description, possibly by visiting the FlickrURL :)
+			(: #################### :)
+			return SaveAndLinkImage($imageUrl, $imageFilenameForStorage, $documentUri, $imageCaption, $imageDescription)
+};
+
 declare function CreateInsertImageCommand() as xs:string
 {
 	fn:concat
@@ -572,7 +629,6 @@ declare function CreateTriplesForLinkedPage($documentUri as xs:string, $starting
 	if ($startingDocumentUri = "") then
 		()
 	else
-		let $_ := xdmp:log(fn:concat("Starting document URI: [", $startingDocumentUri, "]"))
 		let $addTripleCommand := CreateTripleCommand()
 		let $_ := util:RunCommandInDifferentTransaction
 			(
