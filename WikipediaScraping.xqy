@@ -178,52 +178,16 @@ declare function SavePageToDatabase($page as node(), $downloadLinkedPages as xs:
 			()
 };
 
-declare function ExtractAndSavePersonData($page as node(), $filename as xs:string)
-{
-	let $contentNode := GetContentNode($page)
-	let $createTripleCommand := CreateTripleCommand()
-	for $row in $contentNode/table[data(@id) = "persondata"]//tr
-		
-		let $pred := GetPredicateFromPersonDataRow($row)
-		let $pred := functx:words-to-camel-case($pred)
-		let $obj := GetObjectFromPersonDataRow($row)
-		return
-			if (not(fn:empty($obj)) and not($obj = ""))
-			then util:RunCommandInDifferentTransaction
-				(
-					$createTripleCommand,
-					(
-					xs:QName("documentUriExt"), $filename, 
-					xs:QName("nodeToAddToExt"), "personData",
-					xs:QName("subjectUriExt"), $filename, 
-					xs:QName("predicateExt"), $pred,
-					xs:QName("objectUriExt"), $obj
-					)
-				)
-			else ()
-};
-
-declare function GetPredicateFromPersonDataRow($row as node()) as xs:string
-{
-	if (exists($row/td[1]))	
-	then fn:string($row/td[1])
-	else ""
-};
-
-declare function GetObjectFromPersonDataRow($row as node()) as xs:string
-{
-	if (exists($row/td[2]))	
-	then fn:string($row/td[2])
-	else ""
-};
-
 declare function CreateDocument($page as node()) as element()
 {
-    let $title := GetTitleFromPage($page)
+	let $title := GetTitleFromPage($page)
 	let $content := GetContentNode($page)
 	let $headings := GetSectionHeadings($content)
 	return
-		<article id="{sem:uuid()}">
+		<article
+			xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+			xsi:noNamespaceSchemaLocation="FoP2.xsd"
+			id="{sem:uuid()}">
 			<title>{$title}</title>
 			<summary>
 			{
@@ -280,6 +244,7 @@ declare function GetSectionHeadings($content as node()) as item()*
 					and not(./text() = "Further reading")
 					and not(./text() = "See also")
 					and not(./text() = "External links")
+					and not(./text() = "Bibliography")
 				]
 		]
 };
@@ -292,10 +257,12 @@ declare function LoopInSubSection($level, $content, $heading)
 	return
 		for $localHeading in $contentHeadings
 		let $headingBeforeSubHeading := $localHeading/preceding-sibling::*[local-name(.)=fn:concat("h",$precedingLevel)][1]
+		let $headingAfterSubHeading := $localHeading/following-sibling::*[local-name(.)=fn:concat("h", $precedingLevel)][1]
 		return 
 			if ($headingBeforeSubHeading = $heading) then
 			let $nextSubHeading := $localHeading/following-sibling::*[local-name(.)=fn:concat("h",$level)][1]
-			let $fullSubSection := $localHeading/following-sibling::* except ($nextSubHeading, $nextSubHeading/following-sibling::*)
+			let $fullSubSection := $localHeading/following-sibling::* except ($nextSubHeading, $nextSubHeading/following-sibling::*, $headingAfterSubHeading, $headingAfterSubHeading/following-sibling::*)
+			
 			let $subSectionContent := $fullSubSection except ($fullSubSection[self::*[local-name(.)=fn:concat("h",$nextLevel)]], $fullSubSection[self::*[local-name(.)=fn:concat("h",$nextLevel)]]/following-sibling::*)
 			return
 				<section id="{sem:uuid()}">
@@ -644,6 +611,45 @@ declare function CreateTriplesForLinkedPage($documentUri as xs:string, $starting
 		return
 			()
 		
+};
+
+declare function ExtractAndSavePersonData($page as node(), $filename as xs:string)
+{
+	let $contentNode := GetContentNode($page)
+	let $createTripleCommand := CreateTripleCommand()
+	for $row in $contentNode/table[data(@id) = "persondata"]//tr
+		
+		let $pred := GetPredicateFromPersonDataRow($row)
+		let $pred := functx:words-to-camel-case($pred)
+		let $obj := GetObjectFromPersonDataRow($row)
+		return
+			if (not(fn:empty($obj)) and not($obj = ""))
+			then util:RunCommandInDifferentTransaction
+				(
+					$createTripleCommand,
+					(
+					xs:QName("documentUriExt"), $filename, 
+					xs:QName("nodeToAddToExt"), "personData",
+					xs:QName("subjectUriExt"), $filename, 
+					xs:QName("predicateExt"), $pred,
+					xs:QName("objectUriExt"), $obj
+					)
+				)
+			else ()
+};
+
+declare function GetPredicateFromPersonDataRow($row as node()) as xs:string
+{
+	if (exists($row/td[1]))	
+	then fn:string($row/td[1])
+	else ""
+};
+
+declare function GetObjectFromPersonDataRow($row as node()) as xs:string
+{
+	if (exists($row/td[2]))	
+	then fn:string($row/td[2])
+	else ""
 };
 
 declare function DownloadLinkedPages($links as item()*, $startingDocumentUri as xs:string)
