@@ -242,6 +242,7 @@ declare function GetSectionHeadings($content as node()) as item()*
 					and not(./text() = "Further reading")
 					and not(./text() = "See also")
 					and not(./text() = "External links")
+					and not(./text() = "Bibliography")
 				]
 		]
 };
@@ -254,10 +255,12 @@ declare function LoopInSubSection($level, $content, $heading)
 	return
 		for $localHeading in $contentHeadings
 		let $headingBeforeSubHeading := $localHeading/preceding-sibling::*[local-name(.)=fn:concat("h",$precedingLevel)][1]
+		let $headingAfterSubHeading := $localHeading/following-sibling::*[local-name(.)=fn:concat("h", $precedingLevel)][1]
 		return 
 			if ($headingBeforeSubHeading = $heading) then
 			let $nextSubHeading := $localHeading/following-sibling::*[local-name(.)=fn:concat("h",$level)][1]
-			let $fullSubSection := $localHeading/following-sibling::* except ($nextSubHeading, $nextSubHeading/following-sibling::*)
+			let $fullSubSection := $localHeading/following-sibling::* except ($nextSubHeading, $nextSubHeading/following-sibling::*, $headingAfterSubHeading, $headingAfterSubHeading/following-sibling::*)
+			
 			let $subSectionContent := $fullSubSection except ($fullSubSection[self::*[local-name(.)=fn:concat("h",$nextLevel)]], $fullSubSection[self::*[local-name(.)=fn:concat("h",$nextLevel)]]/following-sibling::*)
 			return
 				<section id="{sem:uuid()}">
