@@ -1,0 +1,2 @@
+import module namespace wiki = "http://ixxus.com/wikipediascraping" at "WikipediaScraping.xqy";
+wiki:ImportPagesFromWikipediaExportFile("C:\Users\sleyland\Development\Future of Publishing 2\Wikipedia-20140203145529.xml")
