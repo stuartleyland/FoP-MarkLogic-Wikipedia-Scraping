@@ -385,14 +385,24 @@ declare function SaveImagesToDatabase($imageDivs as item()*, $documentUri as xs:
 
 declare function HandleImageDiv($imageDiv as node(), $documentUri as xs:string)
 {
-	let $insertImageCommand := CreateInsertImageCommand()
-	let $createTripleCommand := CreateTripleCommand()
-	
 	let $imageUrl := GetImageUrl($imageDiv)
 	let $imageFilenameOnWikipedia := GetImageFilenameOnWikipedia($imageUrl)
 	let $imageFilenameForStorage := GetImageFilenameForStorage($imageFilenameOnWikipedia)
 	let $imageCaption := GetImageCaption($imageDiv)
 	let $imageDescription := GetImageDescription($imageFilenameOnWikipedia)
+	return SaveAndLinkImage($imageUrl, $imageFilenameForStorage, $documentUri, $imageCaption, $imageDescription)
+};
+
+(: 
+## Save the image to the database
+## Create triples to link the image and the caption, and the image and the description
+## $imageDescription can be empty
+:)
+declare function SaveAndLinkImage($imageUrl, $imageFilenameForStorage, $documentUri, $imageCaption, $imageDescription)
+{
+	let $insertImageCommand := CreateInsertImageCommand()
+	let $createTripleCommand := CreateTripleCommand()
+
 	let $_ := util:RunCommandInDifferentTransaction
 		(
 			$insertImageCommand, 
